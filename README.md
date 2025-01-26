@@ -6,7 +6,6 @@ With one keymap (or one command), a line like `Do something @ 3pm-4pm` or `Do so
 
 ![Demo](https://github.com/user-attachments/assets/07f8e0c2-c61d-4e54-8d62-4af082193f56)
 
-
 ## Limitations
 Contributions are welcome!
 
@@ -40,7 +39,7 @@ Example using Lazy (the values listed are the default ones):
 
 ```lua
 {
-  'filho/note2cal.nvim',
+  'lfilho/note2cal.nvim',
   config = function()
     require("note2cal").setup({
       debug = false, -- if true, prints a debug message an return early (won't schedule events)
