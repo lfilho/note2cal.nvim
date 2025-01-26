@@ -4,7 +4,8 @@ note2cal is a Neovim plugin designed to quickly create events directly from mark
 
 With one keymap (or one command), a line like `Do something @ 3pm-4pm` or `Do something @ 2025-01-20 3pm-4pm` will be converted to an accordingly named event in your calendar at that specified time. See more ways to specifying the time in the [Supported Formats](#supported-formats) section.
 
-![CleanShot 2025-01-26 at 10 38 59](https://github.com/user-attachments/assets/a333db3d-8c9c-4900-9579-55773df64510)
+![Demo](https://github.com/user-attachments/assets/07f8e0c2-c61d-4e54-8d62-4af082193f56)
+
 
 ## Limitations
 Contributions are welcome!
