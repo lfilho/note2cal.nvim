@@ -85,3 +85,4 @@ Contributions are welcome!
 - Add support for other date formats other than `YYYY-MM-DD`.
 - Run tests on Github on push to main.
 - Add icon to sign column to indicate there's an event in that line.
+- Support natural language (@ tomorrow, @ next tuesday, etc). Thanks u/my_mix_still_sucks on reddit for the suggestion
