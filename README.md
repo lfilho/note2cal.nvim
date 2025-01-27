@@ -1,12 +1,13 @@
 # note2cal.nvim
 
-note2cal is a Neovim plugin designed to quickly create events directly from markdown files. Making for a great companion to whatever note taking flow you use.
+`note2cal` is a Neovim plugin designed to quickly create events directly from markdown files. Making for a great companion to whatever note taking flow you use.
 
 With one keymap (or one command), a line like `Do something @ 3pm-4pm` or `Do something @ 2025-01-20 3pm-4pm` will be converted to an accordingly named event in your calendar at that specified time. See more ways to specifying the time in the [Supported Formats](#supported-formats) section.
 
 ![Demo](https://github.com/user-attachments/assets/07f8e0c2-c61d-4e54-8d62-4af082193f56)
 
 ## Limitations
+
 Contributions are welcome!
 
 - MacOS only for now as it requires the Calendar.app and AppleScript.
@@ -64,9 +65,10 @@ Example using Lazy (the values listed are the default ones):
 It works in normal mode and visual mode (single or multiple lines).
 Just call it with the keymap you configured above or invoke the command `:Note2cal` in the desired lines.
 
-**Note:** if no date is provided, the script assumes today's date.
-
-**Note:** even if the Calendar.app is not open, the script will open it in the background in order to schedule the event.
+> [!NOTE]
+>
+> - If no date is provided, the script assumes today's date.
+> - Even if the Calendar.app is not open, the script will open it in the background in order to schedule the event.
 
 ## Contributing
 
@@ -86,3 +88,18 @@ Contributions are welcome!
 - Run tests on Github on push to main.
 - Add icon to sign column to indicate there's an event in that line.
 - Support natural language (@ tomorrow, @ next tuesday, etc). Thanks u/my_mix_still_sucks on reddit for the suggestion
+
+## Similar plugins
+
+None that I know of, feel free to send me a PR to list it here!
+
+- https://github.com/itchyny/calendar.vim → ❌ It brings a read-only calendar view to inside vim, not what we do)
+
+## Related plugins
+
+This plugin would be a great addition to note taking or task management plugins, such as:
+
+- https://github.com/atiladefreitas/dooing
+- https://github.com/zk-org/zk-nvim
+- https://github.com/vimwiki/vimwiki
+- and probably many others :)
