@@ -282,20 +282,26 @@ function M.extract_event_details(text)
 	return event_title, event_date, time
 end
 
-function M.extract_and_schedule()
+function M.extract_and_schedule(range)
 	local mode = vim.api.nvim_get_mode().mode
 
-	-- Get the text based on mode
 	local lines
 	if mode == "n" then
-		lines = { vim.api.nvim_get_current_line() }
+		if range then -- Command mode with a range given
+			local start_line = range.line1
+			local end_line = range.line2
+
+			lines = vim.fn.getline(start_line, end_line)
+		else -- Normal mode or command mode without a range
+			lines = { vim.api.nvim_get_current_line() }
+		end
 	else
-		-- In visual mode, get selected text
-		local start_row = vim.fn.line("v")
-		local end_row = vim.fn.line(".")
+		-- In visual mode, get selected lines
+		local start_line = vim.fn.line("v")
+		local end_line = vim.fn.line(".")
 
 		-- Get all selected lines
-		lines = vim.fn.getline(start_row, end_row)
+		lines = vim.fn.getline(start_line, end_line)
 	end
 
 	-- Remove lines that only contain whitespace
@@ -400,7 +406,11 @@ function M.setup(opts)
 		end,
 	})
 
-	vim.api.nvim_create_user_command("Note2cal", M.extract_and_schedule, { desc = "Schedule event(s) from line(s)" })
+	vim.api.nvim_create_user_command(
+		"Note2cal",
+		M.extract_and_schedule,
+		{ range = true, desc = "Schedule event(s) from line(s)" }
+	)
 end
 
 return M

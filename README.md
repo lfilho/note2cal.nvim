@@ -79,7 +79,6 @@ Contributions are welcome!
 
 ## Ideas / TODOs
 
-- Make `:Note2cal` command take a range
 - Make the current `@` pattern configurable
 - Compile the applescript for slightly better performance
 - Add a conceal / virtual icon to denote the event was scheduled
