@@ -298,6 +298,9 @@ function M.extract_and_schedule()
 		lines = vim.fn.getline(start_row, end_row)
 	end
 
+	-- Remove lines that only contain whitespace
+	lines = vim.tbl_filter(function(line) return line:match("%S") end, lines)
+
 	local events = {}
 	for _, line in ipairs(lines) do
 		local text = clean_text(line)
