@@ -250,7 +250,7 @@ function M.schedule_events(events)
 			end
 		end,
 		on_stderr = function(_, data)
-			if data and #data > 0 and data[1] ~= "" then
+			if data and #data > 0 and data[1] ~= "" and not data[1]:match("ApplePersistence=NO") then
 				error_shown = true
 				vim.schedule(function()
 					vim.notify(
