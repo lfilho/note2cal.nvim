@@ -6,6 +6,7 @@ The `google` provider creates events directly in Google Calendar over HTTPS. **E
 
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or reuse an existing personal one).
 2. In **APIs & Services → Library**, search for **Google Calendar API** and click **Enable**.
+3. You can con on with the rest of this guide but know that google needs a minute or two before you can actually use this API trying to use it immediately can produce an error like `Google Calendar API has not been used in project <N> before or it is disabled` later when scheduling events, even though you just enabled it correctly.
 
 ### 2. Configure the OAuth consent screen
 
@@ -82,3 +83,4 @@ If you ever see an authentication error, just run `:Note2calGoogleLogin` again.
 - Your `client_id`/`client_secret` and token never leave your machine or go through any third-party server — note2cal talks directly to `accounts.google.com` / `oauth2.googleapis.com` / `www.googleapis.com` via `curl`.
 - The plugin author has no access to, and never sees, any user's Google credentials or calendar data — there is no shared backend and no shared OAuth client.
 - Requires `curl` on your `PATH`, and a way to open a URL in a browser (`open` on macOS, `xdg-open` on Linux, or `start` on Windows).
+
