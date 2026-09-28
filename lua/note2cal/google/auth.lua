@@ -52,15 +52,21 @@ local function open_url(url)
 end
 
 -- Starts a one-shot loopback HTTP listener to receive the OAuth redirect.
--- Returns the bound port synchronously; `on_result(code, err)` fires later,
--- exactly once, when the browser redirect (or a listener error) arrives.
+-- Returns the bound port synchronously; `on_result(code, err, respond)`
+-- fires later, exactly once, when the browser redirect (or a listener
+-- error) arrives. The HTTP response shown in the browser is NOT sent
+-- immediately on redirect receipt -- the caller must call
+-- `respond(ok, message)` once it actually knows whether the rest of the
+-- flow (token exchange, local credential storage) succeeded, so the
+-- browser page reflects the true outcome instead of merely "a redirect
+-- arrived".
 local function start_loopback_server(expected_state, on_result)
 	local server = vim.uv.new_tcp()
 	server:bind("127.0.0.1", 0)
 	local port = server:getsockname().port
 	local done = false
 
-	local function finish(code, err)
+	local function finish(code, err, respond)
 		if done then
 			return
 		end
@@ -70,13 +76,13 @@ local function start_loopback_server(expected_state, on_result)
 		-- `on_result` (and anything it calls) may call into either, so
 		-- hop back onto the main loop first.
 		vim.schedule(function()
-			on_result(code, err)
+			on_result(code, err, respond)
 		end)
 	end
 
 	server:listen(1, function(listen_err)
 		if listen_err then
-			finish(nil, "listen error: " .. listen_err)
+			finish(nil, "listen error: " .. listen_err, function() end)
 			return
 		end
 
@@ -88,7 +94,6 @@ local function start_loopback_server(expected_state, on_result)
 				pcall(function()
 					client:close()
 				end)
-				finish(nil, "connection error: " .. read_err)
 				return
 			end
 			if not chunk or not chunk:find("\n") then
@@ -102,38 +107,45 @@ local function start_loopback_server(expected_state, on_result)
 			local request_line = chunk:match("^(.-)\r?\n") or ""
 			local query = request_line:match("^GET%s+/?%??(%S*)%s+HTTP")
 
-			local body = "<html><body>note2cal: authentication received, you can close this tab.</body></html>"
-			local response = table.concat({
-				"HTTP/1.1 200 OK",
-				"Content-Type: text/html; charset=utf-8",
-				"Content-Length: " .. #body,
-				"Connection: close",
-				"",
-				body,
-			}, "\r\n")
-
-			client:write(response, function()
-				pcall(function()
-					client:close()
-					server:close()
+			local function respond(ok, message)
+				local body = string.format(
+					"<html><body>note2cal: %s</body></html>",
+					ok and "authentication complete, you can close this tab."
+						or (
+							"authentication failed ("
+							.. tostring(message)
+							.. "). You can close this tab; check Neovim for details."
+						)
+				)
+				local response = table.concat({
+					"HTTP/1.1 200 OK",
+					"Content-Type: text/html; charset=utf-8",
+					"Content-Length: " .. #body,
+					"Connection: close",
+					"",
+					body,
+				}, "\r\n")
+				client:write(response, function()
+					pcall(function()
+						client:close()
+						server:close()
+					end)
 				end)
-			end)
+			end
 
 			if not query then
-				finish(nil, "malformed redirect request")
+				finish(nil, "malformed redirect request", respond)
 				return
 			end
 
-			local state = util.url_decode(query:match("[?&]state=([^&]+)"))
-			local code = util.url_decode(query:match("[?&]code=([^&]+)"))
-			local err_param = util.url_decode(query:match("[?&]error=([^&]+)"))
+			local params = util.parse_query(query)
 
-			if state ~= expected_state then
-				finish(nil, "state mismatch on redirect; ignoring (possible CSRF)")
-			elseif code then
-				finish(code, nil)
+			if params.state ~= expected_state then
+				finish(nil, "state mismatch on redirect; ignoring (possible CSRF)", respond)
+			elseif params.code then
+				finish(params.code, nil, respond)
 			else
-				finish(nil, err_param or "no authorization code received")
+				finish(nil, params.error or "no authorization code received", respond)
 			end
 		end)
 	end)
@@ -161,8 +173,14 @@ function M.login(config, callback)
 	local scope = config.scope or DEFAULT_SCOPE
 	local state = util.random_state()
 
-	local port = start_loopback_server(state, function(code, err)
+	-- Pre-declared (not `local port = start_loopback_server(...)`) so the
+	-- callback closure below -- created while evaluating this call, before
+	-- the assignment completes -- captures this exact variable instead of
+	-- an unrelated (nil) one; see the redirect_uri references inside it.
+	local port
+	port = start_loopback_server(state, function(code, err, respond)
 		if not code then
+			respond(false, err)
 			callback(false, "authorization failed: " .. tostring(err))
 			return
 		end
@@ -183,6 +201,7 @@ function M.login(config, callback)
 			body = body,
 		}, function(ok, result)
 			if not ok or not result.decoded or not result.decoded.access_token then
+				respond(false, "token exchange failed")
 				callback(false, "token exchange failed: " .. tostring(result and result.body))
 				return
 			end
@@ -191,6 +210,7 @@ function M.login(config, callback)
 			token.expires_at = os.time() + (token.expires_in or 3600) - 60
 
 			if not token.refresh_token then
+				respond(false, "Google did not return a refresh_token")
 				callback(
 					false,
 					"Google did not return a refresh_token; revoke access at "
@@ -201,9 +221,11 @@ function M.login(config, callback)
 
 			secret_store.save(security_mode(config), token, function(saved, save_err)
 				if not saved then
+					respond(false, "failed to store credentials locally")
 					callback(false, save_err)
 					return
 				end
+				respond(true)
 				callback(true)
 			end)
 		end)

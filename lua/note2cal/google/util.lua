@@ -28,6 +28,26 @@ function M.url_decode(str)
 	return str
 end
 
+--- Parses a "k=v&k2=v2" query/body string into a table of decoded values.
+--- Unlike a naive "[?&]key=value" pattern match, this correctly handles
+--- the first pair having no leading separator -- notably, Google's
+--- redirect commonly puts `code` first, which such a match would miss.
+function M.parse_query(query)
+	local result = {}
+	if not query or query == "" then
+		return result
+	end
+	for pair in (query .. "&"):gmatch("([^&]*)&") do
+		if pair ~= "" then
+			local key, value = pair:match("^([^=]+)=(.*)$")
+			if key then
+				result[M.url_decode(key)] = M.url_decode(value)
+			end
+		end
+	end
+	return result
+end
+
 --- Build a "k=v&k2=v2" query/body string from a table, sorted by key so
 --- output (and therefore tests) are deterministic.
 function M.build_query(params)
