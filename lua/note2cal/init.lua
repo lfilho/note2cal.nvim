@@ -1,7 +1,11 @@
 local M = {}
 
 M.default_config = {
-	calendar_name = "Work",
+	-- "macos-calendar" (default, unchanged behavior) or "google"
+	provider = "macos-calendar",
+	macos = {
+		calendar_name = "Work", -- the calendar's name as it appears in Calendar.app
+	},
 	keymaps = {
 		normal = "<Leader>se",
 		visual = "<Leader>se",
@@ -9,6 +13,17 @@ M.default_config = {
 	highlights = {
 		at_symbol = "WarningMsg",
 		at_text = "Folded",
+	},
+	google = {
+		-- Neither client_id nor client_secret are config fields: both must
+		-- be set via NOTE2CAL_GOOGLE_CLIENT_ID / NOTE2CAL_GOOGLE_CLIENT_SECRET
+		-- environment variables (see docs/google-calendar-setup.md), so they
+		-- can never end up committed alongside this config.
+		calendar_id = "primary", -- "primary" for your default calendar, or a specific calendar's ID
+		scope = "https://www.googleapis.com/auth/calendar.events",
+		-- "os-key-store" (default: OS keychain, else GPG-encrypted file) or
+		-- "plain-file" (explicit opt-in to an unencrypted token file)
+		security = "os-key-store",
 	},
 	debug = false,
 }
@@ -168,99 +183,23 @@ M.parse_time = function(time_str)
 	return start_h, start_m, end_h, end_m
 end
 
--- Extracted function to schedule events
+-- Dispatches to the configured calendar provider.
 function M.schedule_events(events)
-	local script_lines = {
-		"try",
-		'  tell application "Calendar"',
-	}
+	local provider = M.config.provider or "macos-calendar"
 
-	for _, event in ipairs(events) do
-		table.insert(script_lines, "    set startDate to (current date)")
-		table.insert(script_lines, string.format("    set year of startDate to %s", event.year))
-		table.insert(script_lines, string.format("    set month of startDate to %s", event.month))
-		table.insert(script_lines, string.format("    set day of startDate to %s", event.day))
-		table.insert(script_lines, string.format("    set hours of startDate to %s", event.start_hour))
-		table.insert(script_lines, string.format("    set minutes of startDate to %s", event.start_min))
-		table.insert(script_lines, "    set seconds of startDate to 0")
-		table.insert(script_lines, "    copy startDate to endDate")
-		table.insert(script_lines, string.format("    set hours of endDate to %s", event.end_hour))
-		table.insert(script_lines, string.format("    set minutes of endDate to %s", event.end_min))
-		table.insert(
-			script_lines,
+	if provider == "macos-calendar" then
+		require("note2cal.providers.macos_calendar").schedule(events, M.config)
+	elseif provider == "google" then
+		require("note2cal.providers.google").schedule(events, M.config)
+	else
+		vim.notify(
 			string.format(
-				'    make new event at calendar "%s" with properties {summary:"%s", start date:startDate, end date:endDate}',
-				M.config.calendar_name,
-				event.title
-			)
+				'[note2cal] Unknown provider "%s" (expected "macos-calendar" or "google")',
+				tostring(provider)
+			),
+			vim.log.levels.ERROR
 		)
 	end
-
-	table.insert(script_lines, "  end tell")
-	table.insert(script_lines, "on error errMsg")
-	table.insert(script_lines, '  display dialog "Error: " & errMsg')
-	table.insert(script_lines, "end try")
-
-	local applescript_command = string.format("osascript -e '%s'", table.concat(script_lines, "\n"))
-
-	if M.config.debug then
-		-- Put debug information in a scratch buffer
-		local buf = vim.api.nvim_create_buf(false, true)
-		local debug_info = {
-			"## [note2cal] Debug Information",
-			"",
-			string.format("**Events Count**: %d", #events),
-			"**Events**:",
-		}
-		table.insert(debug_info, "")
-		table.insert(debug_info, "**AppleScript**:")
-		table.insert(debug_info, "```applescript")
-		for _, line in pairs(script_lines) do
-			table.insert(debug_info, line)
-		end
-		table.insert(debug_info, "```")
-
-		vim.api.nvim_buf_set_lines(buf, 0, -1, false, debug_info)
-		vim.api.nvim_command("split")
-		vim.api.nvim_win_set_buf(0, buf)
-		vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
-		vim.api.nvim_set_option_value("buftype", "nofile", { buf = buf })
-		vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
-		vim.api.nvim_win_set_height(0, #debug_info + 1)
-		return
-	end
-
-	-- Show initial notification
-	vim.notify(string.format("Scheduling %d event(s)...", #events), vim.log.levels.INFO)
-
-	-- Track if we've shown an error
-	local error_shown = false
-
-	-- Run AppleScript asynchronously
-	vim.fn.jobstart(applescript_command, {
-		on_exit = function(_, exit_code)
-			if exit_code ~= 0 and not error_shown then
-				vim.schedule(function()
-					vim.notify(string.format("Failed to schedule %d events", #events), vim.log.levels.ERROR)
-				end)
-			elseif exit_code == 0 and not error_shown then
-				vim.schedule(function()
-					vim.notify(string.format("Successfully scheduled %d events", #events), vim.log.levels.INFO)
-				end)
-			end
-		end,
-		on_stderr = function(_, data)
-			if data and #data > 0 and data[1] ~= "" then
-				error_shown = true
-				vim.schedule(function()
-					vim.notify(
-						string.format("Error scheduling events: %s", table.concat(data, "\n")),
-						vim.log.levels.ERROR
-					)
-				end)
-			end
-		end,
-	})
 end
 
 -- Helper function to extract event details
@@ -362,7 +301,21 @@ end
 
 -- Setup function for lazy.nvim
 function M.setup(opts)
-	M.config = vim.tbl_deep_extend("force", M.default_config, opts or {})
+	opts = opts or {}
+
+	-- Backwards compatibility: `calendar_name` used to be a top-level field
+	-- before macos-calendar got its own `macos` table (mirroring `google`).
+	if opts.calendar_name then
+		vim.notify(
+			'[note2cal] "calendar_name" is deprecated; use "macos.calendar_name" instead.',
+			vim.log.levels.WARN
+		)
+		opts.macos = opts.macos or {}
+		opts.macos.calendar_name = opts.macos.calendar_name or opts.calendar_name
+		opts.calendar_name = nil
+	end
+
+	M.config = vim.tbl_deep_extend("force", M.default_config, opts)
 
 	local function set_keymaps()
 		if vim.bo.filetype == "markdown" then
@@ -411,6 +364,25 @@ function M.setup(opts)
 		M.extract_and_schedule,
 		{ range = true, desc = "Schedule event(s) from line(s)" }
 	)
+
+	vim.api.nvim_create_user_command("Note2calGoogleLogin", function()
+		require("note2cal.google.auth").login(M.config.google, function(ok, err)
+			if ok then
+				vim.notify("[note2cal] Google Calendar authentication succeeded", vim.log.levels.INFO)
+			else
+				vim.notify(
+					string.format("[note2cal] Google Calendar authentication failed: %s", err),
+					vim.log.levels.ERROR
+				)
+			end
+		end)
+	end, { desc = "Authenticate note2cal with Google Calendar" })
+
+	vim.api.nvim_create_user_command("Note2calGoogleLogout", function()
+		require("note2cal.google.auth").logout(M.config.google, function()
+			vim.notify("[note2cal] Google Calendar credentials removed", vim.log.levels.INFO)
+		end)
+	end, { desc = "Remove stored Google Calendar credentials" })
 end
 
 return M

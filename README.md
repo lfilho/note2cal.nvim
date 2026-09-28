@@ -4,13 +4,14 @@
 
 With one keymap (or one command), a line like `Do something @ 3pm-4pm` or `Do something @ 2025-01-20 3pm-4pm` will be converted to an accordingly named event in your calendar at that specified time. See more ways to specifying the time in the [Supported Formats](#supported-formats) section.
 
-![Demo](https://github.com/user-attachments/assets/07f8e0c2-c61d-4e54-8d62-4af082193f56)
+Two calendar providers are supported: `"macos-calendar"` (default, requires macOS + Calendar.app via AppleScript) and `"google"` (cross-platform, talks directly to the Google Calendar API — see [Google Calendar setup](#google-calendar-setup) below)
+
+![Demo using Calendar.app](https://github.com/user-attachments/assets/07f8e0c2-c61d-4e54-8d62-4af082193f56)
 
 ## Limitations
 
 Contributions are welcome!
 
-- MacOS only for now as it requires the Calendar.app and AppleScript
 - There's a wide range of supported **time** formats (see below), but for now the only supported **date** format is `YYYY-MM-DD`
 - No support for multi-day events yet
 - Works in Markdown files only for now
@@ -43,8 +44,16 @@ Example using Lazy (the values listed are the default ones):
   'lfilho/note2cal.nvim',
   config = function()
     require("note2cal").setup({
-      debug = false, -- if true, prints a debug message an return early (won't schedule events)
-      calendar_name = "Work", -- the name of the calendar as it appear on Calendar.app
+      debug = false, -- if true, prints a debug message and return early (won't schedule events)
+      provider = "macos-calendar", -- "macos-calendar" (default) or "google"
+      macos = { -- only needed if using macos Calendar.app
+        calendar_name = "Work", -- the calendar's name as it appears in Calendar.app
+      },
+      google = { -- only needed if using google calendar
+        -- see the "Google Calendar setup" doc for oauth details
+        calendar_id = "primary", -- "primary" for your default calendar, or a specific calendar's ID
+        security = "os-key-store", -- "os-key-store" (default) or "plain-file (not recommended)"
+      },
       highlights = {
         at_symbol = "WarningMsg", -- the highlight group for the "@" symbol
         at_text = "Number", -- the highlight group for the date-time part
@@ -68,7 +77,10 @@ Just call it with the keymap you configured above or invoke the command `:Note2c
 > [!NOTE]
 >
 > - If no date is provided, the script assumes today's date.
-> - Even if the Calendar.app is not open, the script will open it in the background in order to schedule the event.
+
+## Google Calendar setup
+
+See [here](/docs/google-calendar-setup.md).
 
 ## Contributing
 
