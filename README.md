@@ -86,7 +86,7 @@ See [here](/docs/google-calendar-setup.md).
 
 Contributions are welcome!
 
-- Make sure to have lua, luarocks and busted installed (e.g.: `brew install lua luarocks && luarocks install busted`)
+- Make sure to have `lua@5.1`, `luarocks` and `busted` installed (e.g.: `brew install lua@5.1 luarocks && luarocks --lua-version=5.1 install busted luafilesystem`) — pinned to 5.1 since that's what `scripts/test.sh` targets (matches the Lua semantics Neovim itself runs under, and avoids Homebrew's unversioned `lua` formula drifting out from under `busted`)
 - Run tests with `./scripts/test.sh`
 
 ## Ideas / TODOs
